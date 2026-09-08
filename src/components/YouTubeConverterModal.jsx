@@ -18,7 +18,7 @@ import {
 import YoutubeIcon from './YoutubeIcon';
 import { saveTrackOffline } from '../services/storage';
 
-const DEFAULT_GLOBAL_SERVER = 'https://seminar-vids-anchor-commission.trycloudflare.com';
+const DEFAULT_GLOBAL_SERVER = 'https://cozy-beats.onrender.com';
 
 const QUICK_TAGS = [
   '☕ Lofi Chill',
@@ -52,10 +52,10 @@ export default function YouTubeConverterModal({
 
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Global cloud server bridge (works on ANY network: 4G/5G, Wi-Fi worldwide)
+  // Permanent 24/7 cloud server bridge (works on ANY network: 4G/5G, Wi-Fi worldwide)
   const [serverHost, setServerHost] = useState(() => {
     const saved = localStorage.getItem('cozy_converter_server');
-    if (!saved || saved.includes('192.168.') || saved.includes('localhost') || saved.includes('127.0.0.1')) {
+    if (!saved || saved.includes('192.168.') || saved.includes('localhost') || saved.includes('127.0.0.1') || saved.includes('trycloudflare.com')) {
       try { localStorage.setItem('cozy_converter_server', DEFAULT_GLOBAL_SERVER); } catch {}
       return DEFAULT_GLOBAL_SERVER;
     }

@@ -1,4 +1,4 @@
-import { exec, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -8,13 +8,6 @@ const getYtDlpSpawn = () => {
     return { command: 'python', prefixArgs: ['-m', 'yt_dlp'] };
   }
   return { command: 'yt-dlp', prefixArgs: [] };
-};
-
-const getYtDlpExecCmd = () => {
-  if (process.platform === 'win32') {
-    return 'python -m yt_dlp';
-  }
-  return 'yt-dlp';
 };
 
 /**
@@ -32,13 +25,27 @@ export async function getYouTubeInfo(url) {
     console.warn('oEmbed fetch error:', err);
   }
 
-  // Next run yt-dlp to get accurate duration and format info
+  // Next run yt-dlp with android client to avoid bot detection
   return new Promise((resolve, reject) => {
-    const baseCmd = getYtDlpExecCmd();
-    const cmd = `${baseCmd} --skip-download --dump-json --no-warnings "${url}"`;
-    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
-      if (error) {
-        // Fallback to oembed data if available
+    const runner = getYtDlpSpawn();
+    const proc = spawn(runner.command, [
+      ...runner.prefixArgs,
+      '--extractor-args', 'youtube:player_client=android',
+      '--force-ipv4',
+      '--no-check-certificates',
+      '--skip-download',
+      '--dump-json',
+      '--no-warnings',
+      url
+    ]);
+
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (d) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+    proc.on('close', (code) => {
+      if (code !== 0 || !stdout.trim()) {
         if (oembedData && oembedData.title) {
           return resolve({
             title: oembedData.title,
@@ -48,11 +55,11 @@ export async function getYouTubeInfo(url) {
             url: url
           });
         }
-        return reject(new Error(error.message));
+        return reject(new Error(stderr || 'yt-dlp failed to inspect video'));
       }
 
       try {
-        const info = JSON.parse(stdout);
+        const info = JSON.parse(stdout.trim().split('\n')[0]);
         resolve({
           title: info.title || oembedData?.title || 'YouTube Track',
           artist: info.uploader || info.channel || oembedData?.author_name || 'YouTube Audio',
@@ -89,7 +96,11 @@ export async function downloadYouTubeAudio(url) {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '-f', 'ba[ext=m4a]/ba',
+      '--extractor-args', 'youtube:player_client=android',
+      '--force-ipv4',
+      '--no-check-certificates',
+      '--geo-bypass',
+      '-f', 'ba[ext=m4a]/ba/b',
       '--no-playlist',
       '--no-warnings',
       '-o', outputTemplate,
@@ -117,7 +128,7 @@ export async function downloadYouTubeAudio(url) {
       const downloadedFileName = files[0];
       const filePath = path.join(tempDir, downloadedFileName);
       const ext = path.extname(downloadedFileName).toLowerCase();
-      const mimeType = ext === '.m4a' ? 'audio/mp4' : (ext === '.webm' ? 'audio/webm' : 'audio/mpeg');
+      const mimeType = ext === '.m4a' ? 'audio/mp4' : (ext === '.webm' ? 'audio/webm' : (ext === '.mp4' ? 'audio/mp4' : 'audio/mpeg'));
 
       const fileBuffer = fs.readFileSync(filePath);
       const fileSize = fileBuffer.length;
@@ -148,14 +159,21 @@ export async function searchYouTube(query, limit = 8) {
   const searchSpec = `ytsearch${limit}:${safeQuery}`;
 
   return new Promise((resolve) => {
-    const baseCmd = getYtDlpExecCmd();
-    const cmd = `${baseCmd} --flat-playlist --dump-json --no-warnings "${searchSpec}"`;
-    exec(cmd, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout) => {
-      if (error && !stdout) {
-        console.warn('yt-dlp search error:', error);
-        return resolve([]);
-      }
+    const runner = getYtDlpSpawn();
+    const proc = spawn(runner.command, [
+      ...runner.prefixArgs,
+      '--extractor-args', 'youtube:player_client=android',
+      '--force-ipv4',
+      '--flat-playlist',
+      '--dump-json',
+      '--no-warnings',
+      searchSpec
+    ]);
 
+    let stdout = '';
+    proc.stdout.on('data', (d) => { stdout += d.toString(); });
+
+    proc.on('close', () => {
       const results = [];
       const lines = (stdout || '').split('\n');
       for (const line of lines) {
@@ -164,7 +182,7 @@ export async function searchYouTube(query, limit = 8) {
           const item = JSON.parse(line.trim());
           if (!item.id) continue;
 
-          // Only keep valid YouTube videos (11-character ID), strictly filter out channels and playlists
+          // Only keep valid YouTube videos (11-character ID), filter out channels and playlists
           if (!/^[a-zA-Z0-9_-]{11}$/.test(item.id)) continue;
           if (item._type === 'channel' || item._type === 'playlist') continue;
           if (item.url && (item.url.includes('/channel/') || item.url.includes('/user/') || item.url.includes('/@'))) continue;
