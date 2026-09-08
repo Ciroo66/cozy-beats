@@ -145,4 +145,14 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Cozy Beats Cloud Server] Running on http://0.0.0.0:${PORT}`);
+  
+  // 24/7 Keep-awake self-ping every 10 minutes
+  const KEEP_AWAKE_URL = process.env.RENDER_EXTERNAL_URL || 'https://cozy-beats.onrender.com';
+  setInterval(() => {
+    fetch(`${KEEP_AWAKE_URL}/health`)
+      .then(r => r.json())
+      .then(d => console.log('[Heartbeat] Render self-ping OK, uptime:', Math.round(d.uptime), 'sec'))
+      .catch(err => console.warn('[Heartbeat] Self-ping notice:', err.message));
+  }, 10 * 60 * 1000);
 });
+
