@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Android & iOS intermediate builds
+android/app/build/
+android/.gradle/
+android/build/
+ios/App/build/
+ios/App/Pods/
+ios/App/App.xcworkspace/
+
+# Binaries & Media
+*.apk
+*.aab
+*.ipa
+*.m4a
+*.mp3
+cloudflared.exe
+
+# Logs & temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.system_generated/
+.gemini/

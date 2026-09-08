@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: cozy-beats-player
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000

@@ -1,0 +1,9 @@
+{
+  "appId": "com.cozybeats.musicplayer",
+  "appName": "Cozy Beats",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

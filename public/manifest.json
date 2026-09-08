@@ -1,0 +1,18 @@
+{
+  "short_name": "CozyBeats",
+  "name": "Cozy Beats - Offline Chill Music Player",
+  "description": "Chill & Cozy Offline Music Player for Android. Keep relaxing lo-fi beats in your pocket without internet.",
+  "icons": [
+    {
+      "src": "/vinyl-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#eaddcf",
+  "theme_color": "#eaddcf",
+  "display": "standalone",
+  "orientation": "portrait"
+}
