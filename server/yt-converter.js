@@ -30,7 +30,7 @@ export async function getYouTubeInfo(url) {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '--extractor-args', 'youtube:player_client=android',
+      '--extractor-args', 'youtube:player_client=android_creator,android',
       '--force-ipv4',
       '--no-check-certificates',
       '--skip-download',
@@ -96,11 +96,13 @@ export async function downloadYouTubeAudio(url) {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '--extractor-args', 'youtube:player_client=android',
+      '--extractor-args', 'youtube:player_client=android_creator,android',
       '--force-ipv4',
       '--no-check-certificates',
       '--geo-bypass',
-      '-f', 'ba[ext=m4a]/ba/b',
+      '-f', 'ba[ext=m4a]/ba/18/b',
+      '--extract-audio',
+      '--audio-format', 'm4a',
       '--no-playlist',
       '--no-warnings',
       '-o', outputTemplate,
@@ -162,7 +164,7 @@ export async function searchYouTube(query, limit = 8) {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '--extractor-args', 'youtube:player_client=android',
+      '--extractor-args', 'youtube:player_client=android_creator,android',
       '--force-ipv4',
       '--flat-playlist',
       '--dump-json',
