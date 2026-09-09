@@ -348,7 +348,11 @@ export default function YouTubeConverterModal({
           downloadRes = await fetch(`${apiBase}/api/yt-download`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: targetUrl }),
+            body: JSON.stringify({
+              url: targetUrl,
+              title: resultTrack.title,
+              artist: resultTrack.artist
+            }),
             signal: AbortSignal.timeout(120000)
           });
         } catch {
@@ -413,7 +417,11 @@ export default function YouTubeConverterModal({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ url: videoInfo?.url || searchInput }),
+          body: JSON.stringify({
+            url: videoInfo?.url || searchInput,
+            title: customTitle.trim() || videoInfo?.title || '',
+            artist: customArtist.trim() || videoInfo?.artist || ''
+          }),
           signal: AbortSignal.timeout(90000)
         });
       } catch {

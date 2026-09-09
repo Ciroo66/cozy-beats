@@ -88,6 +88,8 @@ const server = http.createServer(async (req, res) => {
   // 4. YouTube Audio Download API
   if (pathname === '/api/yt-download') {
     let targetUrl = parsedUrl.searchParams.get('url');
+    let trackTitle = parsedUrl.searchParams.get('title') || '';
+    let trackArtist = parsedUrl.searchParams.get('artist') || '';
 
     if (req.method === 'POST') {
       let body = '';
@@ -96,17 +98,19 @@ const server = http.createServer(async (req, res) => {
       try {
         const parsed = JSON.parse(body);
         if (parsed.url) targetUrl = parsed.url;
+        if (parsed.title) trackTitle = parsed.title;
+        if (parsed.artist) trackArtist = parsed.artist;
       } catch {}
     }
 
     if (!targetUrl) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Missing YouTube URL' }));
+      return res.end(JSON.stringify({ error: 'Missing audio URL' }));
     }
 
     try {
-      console.log(`[YouTube Converter] Downloading audio for: ${targetUrl}`);
-      const audioData = await downloadYouTubeAudio(targetUrl);
+      console.log(`[YouTube Converter] Downloading audio for: ${targetUrl} ("${trackTitle}" by "${trackArtist}")`);
+      const audioData = await downloadYouTubeAudio(targetUrl, trackTitle, trackArtist);
 
       res.writeHead(200, {
         'Content-Type': 'application/octet-stream',
