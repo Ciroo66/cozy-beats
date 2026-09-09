@@ -25,12 +25,12 @@ export async function getYouTubeInfo(url) {
     console.warn('oEmbed fetch error:', err);
   }
 
-  // Next run yt-dlp with android client to avoid bot detection
+  // Next run yt-dlp with visionos client to avoid bot detection
   return new Promise((resolve, reject) => {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '--extractor-args', 'youtube:player_client=android_creator,android',
+      '--extractor-args', 'youtube:player_client=visionos,android',
       '--force-ipv4',
       '--no-check-certificates',
       '--skip-download',
@@ -96,11 +96,11 @@ export async function downloadYouTubeAudio(url) {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '--extractor-args', 'youtube:player_client=android_creator,android',
+      '--extractor-args', 'youtube:player_client=visionos,android',
       '--force-ipv4',
       '--no-check-certificates',
       '--geo-bypass',
-      '-f', 'ba[ext=m4a]/ba/18/b',
+      '-f', 'ba/ba[ext=m4a]/18/b',
       '--extract-audio',
       '--audio-format', 'm4a',
       '--no-playlist',
@@ -164,7 +164,7 @@ export async function searchYouTube(query, limit = 8) {
     const runner = getYtDlpSpawn();
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
-      '--extractor-args', 'youtube:player_client=android_creator,android',
+      '--extractor-args', 'youtube:player_client=visionos,android',
       '--force-ipv4',
       '--flat-playlist',
       '--dump-json',
