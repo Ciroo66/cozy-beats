@@ -7,7 +7,8 @@ import {
   Moon, 
   Smartphone, 
   Maximize2, 
-  Coffee
+  Coffee,
+  Search
 } from 'lucide-react';
 import YoutubeIcon from './components/YoutubeIcon';
 import CassetteDeck from './components/CassetteDeck';
@@ -475,14 +476,14 @@ export default function App() {
           </div>
 
           <div className="top-bar-actions">
-            {/* YouTube Tape Dubber */}
+            {/* Search Any Song & Artist */}
             <button 
-              className="icon-pill-btn yt-pill-action"
+              className="icon-pill-btn yt-pill-action search-pill-highlight"
               onClick={() => setIsYouTubeOpen(true)}
-              title="Convert YouTube URL to Offline Tape"
+              title="Search Any Song & Artist"
             >
-              <YoutubeIcon size={14} className="text-red-icon" />
-              <span>YT Dub</span>
+              <Search size={14} className="text-terracotta" />
+              <span>Search Music</span>
             </button>
 
             {/* Bedtime Sleep Timer Button */}
@@ -510,6 +511,18 @@ export default function App() {
         <main className="app-screen-body">
           {activeTab === 'player' ? (
             <>
+              {/* Quick Search Music Trigger */}
+              <div 
+                className="home-search-trigger" 
+                onClick={() => setIsYouTubeOpen(true)}
+                role="button"
+                tabIndex={0}
+              >
+                <Search size={15} className="home-search-icon" />
+                <span className="home-search-text">Search songs, artists, or paste link...</span>
+                <span className="home-search-badge">Online</span>
+              </div>
+
               {/* Cassette / Turntable Visualizer */}
               <CassetteDeck
                 currentTrack={currentTrack}

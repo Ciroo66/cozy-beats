@@ -173,9 +173,9 @@ export default function OfflineLibrary({
         <button 
           className="action-pill-btn yt-action-btn"
           onClick={onOpenYouTubeConverter}
-          title="Convert YouTube video to offline tape"
+          title="Search any song, artist, or paste YouTube link"
         >
-          <YoutubeIcon size={15} className="text-red-icon" /> YouTube to MP3
+          <Search size={14} className="text-red-icon" /> Search Any Song
         </button>
 
         <button 
