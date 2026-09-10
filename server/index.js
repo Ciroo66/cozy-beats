@@ -130,14 +130,29 @@ const server = http.createServer(async (req, res) => {
   if (fs.existsSync(DIST_DIR)) {
     let filePath = path.join(DIST_DIR, pathname === '/' ? 'index.html' : pathname);
     
-    // Fallback to index.html for SPA routing if file doesn't exist
+    // Only fallback to index.html for SPA page routes (not for missing /assets/* or static files with extensions)
+    const isAssetOrFile = pathname.startsWith('/assets/') || path.extname(pathname) !== '';
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      if (isAssetOrFile) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Asset Not Found');
+      }
       filePath = path.join(DIST_DIR, 'index.html');
     }
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const ext = path.extname(filePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+      // HTML and Service Worker should NEVER be cached, while hashed assets can be cached
+      if (ext === '.html' || pathname === '/sw.js') {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else if (pathname.startsWith('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+
       res.writeHead(200, { 'Content-Type': contentType });
       return fs.createReadStream(filePath).pipe(res);
     }

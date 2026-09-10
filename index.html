@@ -18,6 +18,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=Gaegu:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
     
     <title>Cozy Beats • Offline Chill Music</title>
+    <script>
+      // Automatically refresh stale cached assets if a chunk fails to load
+      window.addEventListener('error', function(e) {
+        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          var k = 'cb_auto_reload_ts';
+          var last = sessionStorage.getItem(k);
+          var now = Date.now();
+          if (!last || now - parseInt(last, 10) > 8000) {
+            sessionStorage.setItem(k, now);
+            window.location.reload();
+          }
+        }
+      }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>
