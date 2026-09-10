@@ -46,7 +46,8 @@
 }
 
 html,
-body {
+body,
+#root {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -55,7 +56,8 @@ body {
   background: var(--bg-cozy-paper);
 }
 
-body {
+body,
+#root {
   font-family: var(--font-sans);
   color: var(--color-text-main);
   min-height: 100vh;
