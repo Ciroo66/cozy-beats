@@ -62,12 +62,16 @@ export default function YouTubeConverterModal({
 
   // Permanent 24/7 cloud server bridge (works on ANY network: 4G/5G, Wi-Fi worldwide)
   const [serverHost, setServerHost] = useState(() => {
-    const saved = localStorage.getItem('cozy_converter_server');
-    if (!saved || saved.includes('192.168.') || saved.includes('localhost') || saved.includes('127.0.0.1') || saved.includes('trycloudflare.com')) {
-      try { localStorage.setItem('cozy_converter_server', DEFAULT_GLOBAL_SERVER); } catch {}
+    try {
+      const saved = localStorage.getItem('cozy_converter_server');
+      if (!saved || saved.includes('192.168.') || saved.includes('localhost') || saved.includes('127.0.0.1') || saved.includes('trycloudflare.com')) {
+        try { localStorage.setItem('cozy_converter_server', DEFAULT_GLOBAL_SERVER); } catch {}
+        return DEFAULT_GLOBAL_SERVER;
+      }
+      return saved;
+    } catch {
       return DEFAULT_GLOBAL_SERVER;
     }
-    return saved;
   });
   const [showServerConfig, setShowServerConfig] = useState(false);
 
@@ -86,7 +90,49 @@ export default function YouTubeConverterModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Automatically detect primary artist profile from search results
+  const detectedArtist = useMemo(() => {
+    if (!searchResults || searchResults.length === 0) return null;
+    const artistCounts = {};
+    const artistThumbs = {};
+
+    for (const track of searchResults) {
+      if (!track.artist || track.artist === 'YouTube Audio' || track.artist === 'Cozy Artist') continue;
+      const name = track.artist.trim();
+      artistCounts[name] = (artistCounts[name] || 0) + 1;
+      if (!artistThumbs[name] && track.thumbnail) {
+        artistThumbs[name] = track.thumbnail;
+      }
+    }
+
+    let topArtist = null;
+    let maxCount = 0;
+    for (const [name, count] of Object.entries(artistCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        topArtist = name;
+      }
+    }
+
+    if (!topArtist) {
+      const first = searchResults[0];
+      if (first && first.artist && first.artist !== 'YouTube Audio') {
+        topArtist = first.artist;
+      }
+    }
+
+    if (!topArtist) return null;
+
+    const count = searchResults.filter(
+      (t) => t.artist && t.artist.toLowerCase().includes(topArtist.toLowerCase())
+    ).length;
+
+    return {
+      name: topArtist,
+      thumbnail: artistThumbs[topArtist] || searchResults[0]?.thumbnail || '',
+      trackCount: count
+    };
+  }, [searchResults]);
 
   // Determine base URL for API requests (guarantees APK and Browser work identically)
   const getApiBase = () => {
@@ -328,49 +374,6 @@ export default function YouTubeConverterModal({
     handleProcessInput();
   };
 
-  // Automatically detect primary artist profile from search results
-  const detectedArtist = useMemo(() => {
-    if (!searchResults || searchResults.length === 0) return null;
-    const artistCounts = {};
-    const artistThumbs = {};
-
-    for (const track of searchResults) {
-      if (!track.artist || track.artist === 'YouTube Audio' || track.artist === 'Cozy Artist') continue;
-      const name = track.artist.trim();
-      artistCounts[name] = (artistCounts[name] || 0) + 1;
-      if (!artistThumbs[name] && track.thumbnail) {
-        artistThumbs[name] = track.thumbnail;
-      }
-    }
-
-    let topArtist = null;
-    let maxCount = 0;
-    for (const [name, count] of Object.entries(artistCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        topArtist = name;
-      }
-    }
-
-    if (!topArtist) {
-      const first = searchResults[0];
-      if (first && first.artist && first.artist !== 'YouTube Audio') {
-        topArtist = first.artist;
-      }
-    }
-
-    if (!topArtist) return null;
-
-    const count = searchResults.filter(
-      (t) => t.artist && t.artist.toLowerCase().includes(topArtist.toLowerCase())
-    ).length;
-
-    return {
-      name: topArtist,
-      thumbnail: artistThumbs[topArtist] || searchResults[0]?.thumbnail || '',
-      trackCount: count
-    };
-  }, [searchResults]);
 
   // Open Artist Profile & Catalog
   const handleSelectArtist = async (artistObj) => {
@@ -569,6 +572,8 @@ export default function YouTubeConverterModal({
     const s = Math.floor(sec % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="cozy-modal-backdrop" onClick={onClose}>
