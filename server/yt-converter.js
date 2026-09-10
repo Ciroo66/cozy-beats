@@ -104,11 +104,13 @@ function executeAudioDownload(target) {
       '-f', 'ba/ba[ext=m4a]/18/b',
       '--extract-audio',
       '--audio-format', 'm4a',
-      '--no-playlist',
       '--no-warnings'
     ];
 
-    if (!isSearchQuery) {
+    if (isSearchQuery) {
+      args.push('--ignore-errors', '--max-downloads', '1');
+    } else {
+      args.push('--no-playlist');
       args.push('--extractor-args', 'youtube:player_client=visionos,android');
     }
 
@@ -122,37 +124,37 @@ function executeAudioDownload(target) {
     });
 
     proc.on('close', (code) => {
+      // 1. Check if a valid audio file was successfully downloaded (even if yt-dlp exited with code 1 or 101 due to --max-downloads abort)
+      let files = [];
+      try { files = fs.readdirSync(tempDir); } catch {}
+      if (files.length > 0) {
+        const downloadedFileName = files[0];
+        const filePath = path.join(tempDir, downloadedFileName);
+        try {
+          const stat = fs.statSync(filePath);
+          if (stat.size > 8000) { // Valid audio file > 8KB
+            const ext = path.extname(downloadedFileName).toLowerCase();
+            const mimeType = ext === '.m4a' ? 'audio/mp4' : (ext === '.webm' ? 'audio/webm' : (ext === '.mp3' ? 'audio/mpeg' : 'audio/mp4'));
+            const fileBuffer = fs.readFileSync(filePath);
+            const fileSize = fileBuffer.length;
+            try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+            return resolve({
+              buffer: fileBuffer,
+              mimeType: mimeType,
+              size: fileSize,
+              extension: ext.replace('.', '')
+            });
+          }
+        } catch {}
+      }
+
       if (code !== 0) {
         try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
         return reject(new Error(`Download failed with code ${code}: ${stderr}`));
       }
 
-      const files = fs.readdirSync(tempDir);
-      if (files.length === 0) {
-        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
-        return reject(new Error('No audio file was created by downloader'));
-      }
-
-      const downloadedFileName = files[0];
-      const filePath = path.join(tempDir, downloadedFileName);
-      const ext = path.extname(downloadedFileName).toLowerCase();
-      const mimeType = ext === '.m4a' ? 'audio/mp4' : (ext === '.webm' ? 'audio/webm' : (ext === '.mp3' ? 'audio/mpeg' : 'audio/mp4'));
-
-      const fileBuffer = fs.readFileSync(filePath);
-      const fileSize = fileBuffer.length;
-
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (cleanErr) {
-        console.warn('Temp cleanup warning:', cleanErr);
-      }
-
-      resolve({
-        buffer: fileBuffer,
-        mimeType: mimeType,
-        size: fileSize,
-        extension: ext.replace('.', '')
-      });
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+      return reject(new Error('No audio file was created by downloader'));
     });
   });
 }
@@ -180,7 +182,7 @@ export async function downloadYouTubeAudio(url, trackTitle = '', trackArtist = '
   } catch (ytErr) {
     console.warn(`[Cloud Converter] Direct stream blocked or unavailable: ${ytErr.message}`);
 
-    // 2. Seamless studio cloud fallback: SoundCloud search
+    // 2. Seamless studio cloud fallback: SoundCloud search with DRM skip (searches top 5, skips DRM)
     const cleanSearch = (title || '')
       .replace(/\[.*?\]/g, '')
       .replace(/\(.*?(official|video|audio|remaster|hd|4k).*?\)/gi, '')
@@ -190,11 +192,19 @@ export async function downloadYouTubeAudio(url, trackTitle = '', trackArtist = '
 
     const fallbackQuery = `${cleanSearch} ${artist || ''}`.trim();
     if (fallbackQuery) {
-      console.log(`[Cloud Converter] Resolving via cloud studio fallback: "${fallbackQuery}"`);
+      console.log(`[Cloud Converter] Resolving via cloud studio fallback 1: "${fallbackQuery}"`);
       try {
-        return await executeAudioDownload(`scsearch1:${fallbackQuery}`);
+        return await executeAudioDownload(`scsearch5:${fallbackQuery}`);
       } catch (fallbackErr) {
-        console.warn(`[Cloud Converter] Fallback failed: ${fallbackErr.message}`);
+        console.warn(`[Cloud Converter] Fallback 1 failed: ${fallbackErr.message}`);
+      }
+
+      // 3. Secondary fallback: search track name only
+      console.log(`[Cloud Converter] Resolving via cloud studio fallback 2: "${cleanSearch}"`);
+      try {
+        return await executeAudioDownload(`scsearch5:${cleanSearch}`);
+      } catch (fallbackErr2) {
+        console.warn(`[Cloud Converter] Fallback 2 failed: ${fallbackErr2.message}`);
       }
     }
 
