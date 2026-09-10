@@ -212,77 +212,176 @@ export async function downloadYouTubeAudio(url, trackTitle = '', trackArtist = '
   }
 }
 
-/**
- * Rich multi-source search (YouTube + SoundCloud)
- */
-export async function searchYouTube(query, limit = 8) {
-  if (!query || !query.trim()) return [];
-  const safeQuery = query.trim().replace(/"/g, '');
+const JUNK_AUDIO_PATTERNS = /\b(remix(es)?|sped\s*up|speed\s*up|speedup|slowed|reverb(ed)?|hoodtrap|nightcore|remake(s)?|mashup(s)?|mash\s*up|viral\s*version|viral\s*remix|viral\s*audio|tiktok\s*(version|audio|edit)|type\s*beat|beat\s*remake|bass\s*boost(ed)?|8d\s*audio|instrumental|karaoke|tribute|1\s*hour|10\s*hours|loop|hour\s*loop|compilation|full\s*album|covers?|parody|drill\s*remix|club\s*mix|pitch\s*shifted|pitched|mix|mixes|playlist)\b/i;
+const NON_MUSIC_PATTERNS = /\b(jewellery|jewelry|earrings?\s*design|earrings?\s*collection|vlog|tutorial|how\s*to|diy|unboxing|fashion\s*haul|haul|review|reaction|gameplay|walkthrough)\b/i;
 
+function cleanSongTitle(rawTitle) {
+  return (rawTitle || '')
+    .replace(/\s*[\(\[]\s*official\b.*?[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*(visualizer|lyrics?|lyric\s*video|audio|hd|4k|mv|music\s*video).*?[\)\]]/gi, '')
+    .replace(/\s*[\(\[](sub\.?|traducida|letra|español|english\s*sub|romanized|color\s*coded).*?[\)\]]/gi, '')
+    .replace(/\s*(\||\/\/|~)\s*.*$/g, '')
+    .replace(/official (music )?video/gi, '')
+    .replace(/official audio/gi, '')
+    .replace(/official visualizer/gi, '')
+    .replace(/lyric video/gi, '')
+    .replace(/lyrics video/gi, '')
+    .replace(/lyrics?/gi, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/\[\s*\]/g, '')
+    .replace(/\s*\|\|\s*$/g, '')
+    .trim();
+}
+
+function parseArtistAndTitle(rawTitle, rawUploader) {
+  const uploaderClean = (rawUploader || '')
+    .replace(/\s*-\s*Topic$/i, '')
+    .trim();
+
+  const cleaned = cleanSongTitle(rawTitle);
+  let finalArtist = uploaderClean;
+  let finalTitle = cleaned;
+
+  if (cleaned.includes(' - ')) {
+    const parts = cleaned.split(' - ');
+    const p0 = parts[0].trim();
+    const p1 = parts.slice(1).join(' - ').trim();
+
+    if (p1 && uploaderClean && uploaderClean.toLowerCase().includes(p1.toLowerCase())) {
+      finalArtist = p1;
+      finalTitle = p0;
+    } else if (p0 && uploaderClean && uploaderClean.toLowerCase().includes(p0.toLowerCase())) {
+      finalArtist = p0;
+      finalTitle = p1;
+    } else {
+      finalArtist = p0;
+      finalTitle = p1;
+    }
+  }
+
+  finalTitle = finalTitle.replace(/^["'‘“](.*)["'’”]$/, '$1').trim();
+
+  return {
+    title: finalTitle || rawTitle || 'Cozy Track',
+    artist: finalArtist || uploaderClean || 'Cozy Artist'
+  };
+}
+
+/**
+ * Execute search query using yt-dlp flat playlist dump
+ */
+function queryYtDlpSearch(searchTarget) {
   return new Promise((resolve) => {
     const runner = getYtDlpSpawn();
-    // Search both SoundCloud (100% reliable on datacenters) and YouTube
     const proc = spawn(runner.command, [
       ...runner.prefixArgs,
       '--force-ipv4',
       '--flat-playlist',
       '--dump-json',
       '--no-warnings',
-      `scsearch${Math.ceil(limit / 2)}:${safeQuery}`,
-      `ytsearch${Math.ceil(limit / 2)}:${safeQuery}`
+      searchTarget
     ]);
 
     let stdout = '';
     proc.stdout.on('data', (d) => { stdout += d.toString(); });
-
     proc.on('close', () => {
-      const results = [];
+      const items = [];
       const lines = (stdout || '').split('\n');
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
           const item = JSON.parse(line.trim());
-          if (!item.id && !item.url) continue;
-
-          const isSoundCloud = item.extractor === 'soundcloud' || (item.webpage_url && item.webpage_url.includes('soundcloud.com'));
-          const videoId = item.id || Math.random().toString(36).substring(2, 9);
-          const trackUrl = item.webpage_url || item.url || (isSoundCloud ? item.url : `https://www.youtube.com/watch?v=${videoId}`);
-
-          const cleanTitle = (item.title || '')
-            .replace(/\[.*?\]/g, '')
-            .replace(/\(.*?(official|video|audio|remaster|hd|4k).*?\)/gi, '')
-            .replace(/official (music )?video/gi, '')
-            .replace(/lyrics?/gi, '')
-            .trim();
-
-          const sec = item.duration || 180;
-          const mins = Math.floor(sec / 60);
-          const secs = Math.floor(sec % 60);
-          const durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-
-          let thumb = item.thumbnail;
-          if (item.thumbnails && item.thumbnails.length > 0) {
-            thumb = item.thumbnails[item.thumbnails.length - 1].url || item.thumbnail;
-          }
-          if (!thumb) {
-            thumb = isSoundCloud ? '' : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-          }
-
-          results.push({
-            id: isSoundCloud ? 'sc_' + item.id : videoId,
-            title: cleanTitle || item.title || 'Cozy Track',
-            artist: item.uploader || item.artist || item.channel || 'Cozy Artist',
-            duration: Math.round(sec),
-            durationString: durationStr,
-            thumbnail: thumb,
-            url: trackUrl,
-            source: isSoundCloud ? 'soundcloud' : 'youtube',
-            isFullSong: true
-          });
+          if (item.id || item.url) items.push(item);
         } catch {}
       }
-
-      resolve(results);
+      resolve(items);
     });
   });
+}
+
+/**
+ * Rich authentic search prioritizing original studio tracks & verified artists
+ */
+export async function searchYouTube(query, limit = 10) {
+  if (!query || !query.trim()) return [];
+  const safeQuery = query.trim().replace(/"/g, '');
+  const userWantsSpecial = JUNK_AUDIO_PATTERNS.test(safeQuery);
+
+  // 1. Primary: Search YouTube first (contains verified artist channels, official videos & - Topic tracks)
+  let rawItems = await queryYtDlpSearch(`ytsearch20:${safeQuery}`);
+
+  // 2. Fallback to SoundCloud only if YouTube yielded 0 items
+  let isSoundCloudFallback = false;
+  if (rawItems.length === 0) {
+    rawItems = await queryYtDlpSearch(`scsearch12:${safeQuery}`);
+    isSoundCloudFallback = true;
+  }
+
+  const results = [];
+  for (const item of rawItems) {
+    try {
+      const rawTitle = item.title || '';
+      const sec = item.duration || 180;
+      const rawChannel = item.channel || item.uploader || '';
+      const isSoundCloud = isSoundCloudFallback || item.extractor === 'soundcloud' || (item.webpage_url && item.webpage_url.includes('soundcloud.com'));
+
+      // Filter out remixes, remakes, loops, mixes, and non-music videos
+      if (!userWantsSpecial) {
+        if (JUNK_AUDIO_PATTERNS.test(rawTitle)) continue;
+        if (JUNK_AUDIO_PATTERNS.test(rawChannel)) continue;
+        if (NON_MUSIC_PATTERNS.test(rawTitle) || NON_MUSIC_PATTERNS.test(rawChannel)) continue;
+        if (/\s+[xX]\s+/.test(rawTitle) && !/\b[xX]\b/.test(safeQuery)) continue;
+        if (sec > 660 || sec < 35) continue; // Standard songs: 35s to 11min
+      }
+
+      const { title, artist } = parseArtistAndTitle(rawTitle, rawChannel);
+      const videoId = item.id || Math.random().toString(36).substring(2, 9);
+      const trackUrl = item.webpage_url || item.url || (isSoundCloud ? item.url : `https://www.youtube.com/watch?v=${videoId}`);
+
+      const mins = Math.floor(sec / 60);
+      const secs = Math.floor(sec % 60);
+      const durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+      let thumb = item.thumbnail;
+      if (item.thumbnails && item.thumbnails.length > 0) {
+        thumb = item.thumbnails[item.thumbnails.length - 1].url || item.thumbnail;
+      }
+      if (!thumb) {
+        thumb = isSoundCloud ? '' : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      }
+
+      // Authenticity & Official Artist Scoring
+      let score = 0;
+      const chanLower = rawChannel.toLowerCase();
+      const artLower = artist.toLowerCase();
+
+      if (item.channel_is_verified) score += 60;
+      if (rawChannel.endsWith('- Topic')) score += 50;
+      if (chanLower === artLower || (artLower.length > 2 && chanLower.includes(artLower))) score += 45;
+      if (/official (music )?video|official audio/i.test(rawTitle)) score += 30;
+      if (chanLower.includes('vevo')) score += 25;
+      if (item.view_count && item.view_count > 1000000) score += 20;
+      if (sec >= 110 && sec <= 360) score += 10;
+      if (/lyrics|vibes|hype|sounds|edits|aesthetic|tiktok/i.test(chanLower)) score -= 20;
+
+      results.push({
+        id: isSoundCloud ? 'sc_' + item.id : videoId,
+        title,
+        artist,
+        channel: rawChannel,
+        duration: Math.round(sec),
+        durationString: durationStr,
+        thumbnail: thumb,
+        url: trackUrl,
+        source: isSoundCloud ? 'soundcloud' : 'youtube',
+        isFullSong: true,
+        score
+      });
+    } catch {}
+  }
+
+  // Sort descending by authenticity score so original songs by real artists are top results
+  results.sort((a, b) => b.score - a.score);
+
+  return results.slice(0, limit);
 }

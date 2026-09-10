@@ -31,6 +31,61 @@ const QUICK_TAGS = [
   '✨ Acoustic Guitar'
 ];
 
+const JUNK_AUDIO_PATTERNS = /\b(remix(es)?|sped\s*up|speed\s*up|speedup|slowed|reverb(ed)?|hoodtrap|nightcore|remake(s)?|mashup(s)?|mash\s*up|viral\s*version|viral\s*remix|viral\s*audio|tiktok\s*(version|audio|edit)|type\s*beat|beat\s*remake|bass\s*boost(ed)?|8d\s*audio|instrumental|karaoke|tribute|1\s*hour|10\s*hours|loop|hour\s*loop|compilation|full\s*album|covers?|parody|drill\s*remix|club\s*mix|pitch\s*shifted|pitched|mix|mixes|playlist)\b/i;
+const NON_MUSIC_PATTERNS = /\b(jewellery|jewelry|earrings?\s*design|earrings?\s*collection|vlog|tutorial|how\s*to|diy|unboxing|fashion\s*haul|haul|review|reaction|gameplay|walkthrough)\b/i;
+
+function cleanSongTitle(rawTitle) {
+  return (rawTitle || '')
+    .replace(/\s*[\(\[]\s*official\b.*?[\)\]]/gi, '')
+    .replace(/\s*[\(\[]\s*(visualizer|lyrics?|lyric\s*video|audio|hd|4k|mv|music\s*video).*?[\)\]]/gi, '')
+    .replace(/\s*[\(\[](sub\.?|traducida|letra|español|english\s*sub|romanized|color\s*coded).*?[\)\]]/gi, '')
+    .replace(/\s*(\||\/\/|~)\s*.*$/g, '')
+    .replace(/official (music )?video/gi, '')
+    .replace(/official audio/gi, '')
+    .replace(/official visualizer/gi, '')
+    .replace(/lyric video/gi, '')
+    .replace(/lyrics video/gi, '')
+    .replace(/lyrics?/gi, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/\[\s*\]/g, '')
+    .replace(/\s*\|\|\s*$/g, '')
+    .trim();
+}
+
+function parseArtistAndTitle(rawTitle, rawUploader) {
+  const uploaderClean = (rawUploader || '')
+    .replace(/\s*-\s*Topic$/i, '')
+    .trim();
+
+  const cleaned = cleanSongTitle(rawTitle);
+  let finalArtist = uploaderClean;
+  let finalTitle = cleaned;
+
+  if (cleaned.includes(' - ')) {
+    const parts = cleaned.split(' - ');
+    const p0 = parts[0].trim();
+    const p1 = parts.slice(1).join(' - ').trim();
+
+    if (p1 && uploaderClean && uploaderClean.toLowerCase().includes(p1.toLowerCase())) {
+      finalArtist = p1;
+      finalTitle = p0;
+    } else if (p0 && uploaderClean && uploaderClean.toLowerCase().includes(p0.toLowerCase())) {
+      finalArtist = p0;
+      finalTitle = p1;
+    } else {
+      finalArtist = p0;
+      finalTitle = p1;
+    }
+  }
+
+  finalTitle = finalTitle.replace(/^["'‘“](.*)["'’”]$/, '$1').trim();
+
+  return {
+    title: finalTitle || rawTitle || 'Cozy Track',
+    artist: finalArtist || uploaderClean || 'Cozy Artist'
+  };
+}
+
 export default function YouTubeConverterModal({
   isOpen,
   onClose,
@@ -221,17 +276,9 @@ export default function YouTubeConverterModal({
       }
 
       setVideoInfo(data);
-      const cleanTitle = (data.title || '')
-        .replace(/\[.*?\]/g, '')
-        .replace(/\(.*?\)/g, '')
-        .replace(/official (music )?video/gi, '')
-        .replace(/lyrics?/gi, '')
-        .replace(/audio/gi, '')
-        .replace(/4k remaster/gi, '')
-        .trim();
-
-      setCustomTitle(cleanTitle || data.title);
-      setCustomArtist(data.artist || 'YouTube Artist');
+      const parsedSingle = parseArtistAndTitle(data.title, data.artist);
+      setCustomTitle(parsedSingle.title);
+      setCustomArtist(parsedSingle.artist);
     } catch (err) {
       console.error('Fetch info error:', err);
       setErrorMsg(err.message || 'Failed to inspect YouTube link.');
@@ -260,7 +307,16 @@ export default function YouTubeConverterModal({
         if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
           if (data.results && data.results.length > 0) {
-            foundTracks = data.results.map((r) => ({ ...r, source: 'youtube', isFullSong: true }));
+            foundTracks = data.results.map((r) => {
+              const parsed = parseArtistAndTitle(r.title, r.artist);
+              return {
+                ...r,
+                title: parsed.title,
+                artist: parsed.artist,
+                source: r.source || 'youtube',
+                isFullSong: true
+              };
+            });
           }
         }
       } catch (serverErr) {
@@ -277,8 +333,18 @@ export default function YouTubeConverterModal({
           if (pipedRes.ok) {
             const pipedData = await pipedRes.json();
             if (pipedData.items && pipedData.items.length > 0) {
+              const userWantsSpecial = JUNK_AUDIO_PATTERNS.test(keywords);
               foundTracks = pipedData.items
-                .filter((item) => item.url && item.url.includes('/watch?v='))
+                .filter((item) => {
+                  if (!item.url || !item.url.includes('/watch?v=')) return false;
+                  if (!userWantsSpecial) {
+                    if (JUNK_AUDIO_PATTERNS.test(item.title || '')) return false;
+                    if (NON_MUSIC_PATTERNS.test(item.title || '') || NON_MUSIC_PATTERNS.test(item.uploaderName || '')) return false;
+                    if (/\s+[xX]\s+/.test(item.title || '') && !/\b[xX]\b/.test(keywords)) return false;
+                    if (item.duration && (item.duration > 660 || item.duration < 35)) return false;
+                  }
+                  return true;
+                })
                 .slice(0, 10)
                 .map((item) => {
                   const videoId = item.url.replace('/watch?v=', '');
@@ -286,11 +352,12 @@ export default function YouTubeConverterModal({
                   const mins = Math.floor(sec / 60);
                   const secs = sec % 60;
                   const durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                  const parsed = parseArtistAndTitle(item.title, item.uploaderName);
 
                   return {
                     id: videoId,
-                    title: item.title,
-                    artist: item.uploaderName || 'YouTube Artist',
+                    title: parsed.title,
+                    artist: parsed.artist,
                     duration: sec,
                     durationString: durationStr,
                     thumbnail: item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
