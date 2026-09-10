@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Download, 
   X, 
@@ -13,7 +13,10 @@ import {
   Search,
   Wifi,
   Settings,
-  Globe
+  Globe,
+  User,
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import YoutubeIcon from './YoutubeIcon';
 import { saveTrackOffline } from '../services/storage';
@@ -52,6 +55,11 @@ export default function YouTubeConverterModal({
 
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Artist profile navigation state
+  const [selectedArtist, setSelectedArtist] = useState(null);
+  const [artistTracks, setArtistTracks] = useState([]);
+  const [isLoadingArtistTracks, setIsLoadingArtistTracks] = useState(false);
+
   // Permanent 24/7 cloud server bridge (works on ANY network: 4G/5G, Wi-Fi worldwide)
   const [serverHost, setServerHost] = useState(() => {
     const saved = localStorage.getItem('cozy_converter_server');
@@ -72,6 +80,9 @@ export default function YouTubeConverterModal({
       setErrorMsg('');
       setIsConvertingSingle(false);
       setCompletedSingleTrack(null);
+      setSelectedArtist(null);
+      setArtistTracks([]);
+      setIsLoadingArtistTracks(false);
     }
   }, [isOpen]);
 
@@ -315,6 +326,91 @@ export default function YouTubeConverterModal({
   const handleFormSubmit = (e) => {
     e.preventDefault();
     handleProcessInput();
+  };
+
+  // Automatically detect primary artist profile from search results
+  const detectedArtist = useMemo(() => {
+    if (!searchResults || searchResults.length === 0) return null;
+    const artistCounts = {};
+    const artistThumbs = {};
+
+    for (const track of searchResults) {
+      if (!track.artist || track.artist === 'YouTube Audio' || track.artist === 'Cozy Artist') continue;
+      const name = track.artist.trim();
+      artistCounts[name] = (artistCounts[name] || 0) + 1;
+      if (!artistThumbs[name] && track.thumbnail) {
+        artistThumbs[name] = track.thumbnail;
+      }
+    }
+
+    let topArtist = null;
+    let maxCount = 0;
+    for (const [name, count] of Object.entries(artistCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        topArtist = name;
+      }
+    }
+
+    if (!topArtist) {
+      const first = searchResults[0];
+      if (first && first.artist && first.artist !== 'YouTube Audio') {
+        topArtist = first.artist;
+      }
+    }
+
+    if (!topArtist) return null;
+
+    const count = searchResults.filter(
+      (t) => t.artist && t.artist.toLowerCase().includes(topArtist.toLowerCase())
+    ).length;
+
+    return {
+      name: topArtist,
+      thumbnail: artistThumbs[topArtist] || searchResults[0]?.thumbnail || '',
+      trackCount: count
+    };
+  }, [searchResults]);
+
+  // Open Artist Profile & Catalog
+  const handleSelectArtist = async (artistObj) => {
+    if (!artistObj || !artistObj.name) return;
+    const cleanArtistName = artistObj.name.trim();
+    setSelectedArtist({ ...artistObj, name: cleanArtistName });
+    setIsLoadingArtistTracks(true);
+    setErrorMsg('');
+
+    // Pre-populate with existing matches from current search
+    const existing = searchResults.filter(
+      (t) => t.artist && t.artist.toLowerCase().includes(cleanArtistName.toLowerCase())
+    );
+    setArtistTracks(existing);
+
+    try {
+      const apiBase = getApiBase();
+      const res = await fetch(`${apiBase}/api/yt-search?q=${encodeURIComponent(cleanArtistName + ' songs')}`, {
+        signal: AbortSignal.timeout(25000)
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          const seen = new Set(existing.map((e) => e.id));
+          const merged = [...existing];
+          for (const item of data.results) {
+            if (!seen.has(item.id)) {
+              seen.add(item.id);
+              merged.push({ ...item, isFullSong: true });
+            }
+          }
+          setArtistTracks(merged);
+        }
+      }
+    } catch (err) {
+      console.warn('Artist catalog fetch error:', err);
+    } finally {
+      setIsLoadingArtistTracks(false);
+    }
   };
 
   // 1-Tap Download any search result into IndexedDB offline storage
@@ -572,10 +668,146 @@ export default function YouTubeConverterModal({
         )}
 
         {/* ========================================================= */}
-        {/* VIEW 1: SEARCH RESULTS LIST WITH 1-TAP SAVE BUTTONS       */}
+        {/* VIEW 1A: ARTIST PROFILE & FULL DISCOGRAPHY                */}
         {/* ========================================================= */}
-        {searchResults.length > 0 && !videoInfo && (
+        {selectedArtist && !videoInfo && (
+          <div className="artist-discography-view">
+            <button 
+              type="button" 
+              className="artist-back-btn"
+              onClick={() => setSelectedArtist(null)}
+            >
+              <ArrowLeft size={13} /> Back to Search Results
+            </button>
+
+            <div className="artist-hero-card">
+              <div className="artist-hero-avatar-box">
+                {selectedArtist.thumbnail ? (
+                  <img src={selectedArtist.thumbnail} alt={selectedArtist.name} className="artist-hero-avatar" />
+                ) : (
+                  <div className="artist-hero-placeholder"><User size={24} /></div>
+                )}
+              </div>
+              <div className="artist-hero-details">
+                <div className="artist-pill-row">
+                  <span className="artist-catalog-badge"><Sparkles size={11} /> Artist Profile</span>
+                  <span className="artist-track-count-badge">{artistTracks.length} Songs</span>
+                </div>
+                <h3 className="artist-hero-name">{selectedArtist.name}</h3>
+                <p className="artist-hero-desc">
+                  All available songs & tapes by {selectedArtist.name}. Tap any track to save offline.
+                </p>
+              </div>
+            </div>
+
+            {isLoadingArtistTracks && (
+              <div className="artist-tracks-loading">
+                <Loader2 size={15} className="spin" /> Discovering all songs by {selectedArtist.name}...
+              </div>
+            )}
+
+            <div className="yt-search-results-list">
+              {artistTracks.map((item) => {
+                const isDownloading = !!downloadingIds[item.id];
+                const savedRecord = savedTracksMap[item.id];
+
+                return (
+                  <div key={item.id} className="yt-result-card">
+                    <div className="result-thumb-box">
+                      <img src={item.thumbnail} alt={item.title} className="result-thumb" />
+                      {item.durationString && (
+                        <span className="result-duration-badge">{item.durationString}</span>
+                      )}
+                    </div>
+
+                    <div className="result-meta">
+                      <h4 className="result-title">{item.title}</h4>
+                      <p className="result-artist">
+                        <span>{item.artist || selectedArtist.name}</span>
+                        {item.isFullSong && <span className="full-track-tag">Full Track</span>}
+                      </p>
+                    </div>
+
+                    <div className="result-action">
+                      {savedRecord ? (
+                        <div className="result-saved-actions">
+                          <span className="saved-check-tag">
+                            <Check size={12} /> In Box
+                          </span>
+                          <button
+                            className="result-play-btn"
+                            onClick={() => {
+                              if (onPlayNow) onPlayNow(savedRecord);
+                              onClose();
+                            }}
+                            title="Play on Cassette Deck"
+                          >
+                            <Play size={13} fill="#fff" /> Play
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className={`result-download-btn ${isDownloading ? 'is-busy' : ''}`}
+                          onClick={() => handleDownloadResultTrack(item)}
+                          disabled={isDownloading}
+                        >
+                          {isDownloading ? (
+                            <>
+                              <Loader2 size={13} className="spin" /> Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Download size={13} /> Save to Box
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* VIEW 1B: GENERAL SEARCH RESULTS WITH ARTIST BANNER        */}
+        {/* ========================================================= */}
+        {searchResults.length > 0 && !selectedArtist && !videoInfo && (
           <div className="yt-search-results-box">
+            {/* Primary Artist Profile Banner */}
+            {detectedArtist && (
+              <div 
+                className="artist-profile-banner"
+                onClick={() => handleSelectArtist(detectedArtist)}
+                title={`View all songs by ${detectedArtist.name}`}
+              >
+                <div className="artist-avatar-wrap">
+                  {detectedArtist.thumbnail ? (
+                    <img src={detectedArtist.thumbnail} alt={detectedArtist.name} className="artist-avatar-img" />
+                  ) : (
+                    <div className="artist-avatar-placeholder">
+                      <User size={16} />
+                    </div>
+                  )}
+                  <span className="artist-badge-tag">Artist</span>
+                </div>
+                <div className="artist-info-col">
+                  <div className="artist-header-pill-row">
+                    <span className="artist-kicker">ARTIST PROFILE</span>
+                    <span className="artist-verified-pill">✓ Verified</span>
+                  </div>
+                  <h3 className="artist-headline">{detectedArtist.name}</h3>
+                  <p className="artist-subline">
+                    Tap to explore all songs by {detectedArtist.name} →
+                  </p>
+                </div>
+                <button className="artist-browse-arrow-btn" aria-label="Browse artist songs">
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
+
             <div className="search-results-header">
               <span>Matching Songs ({searchResults.length})</span>
               <span className="search-results-hint">Tap to save offline</span>
@@ -598,7 +830,17 @@ export default function YouTubeConverterModal({
                     <div className="result-meta">
                       <h4 className="result-title">{item.title}</h4>
                       <p className="result-artist">
-                        <span>{item.artist}</span>
+                        <span 
+                          className="result-artist-clickable"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectArtist({ name: item.artist, thumbnail: item.thumbnail });
+                          }}
+                          title={`View all songs by ${item.artist}`}
+                        >
+                          <User size={11} className="inline mr-1 opacity-70" />
+                          {item.artist}
+                        </span>
                         {item.isFullSong && <span className="full-track-tag">Full Track</span>}
                       </p>
                     </div>

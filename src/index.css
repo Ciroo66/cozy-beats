@@ -2875,6 +2875,313 @@ body {
   margin-bottom: 10px;
 }
 
+/* Artist Profile Feature */
+.artist-profile-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #fbf7ee 0%, #f4e9db 100%);
+  border: 1.5px solid #d4beab;
+  border-radius: 16px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 3px 8px rgba(80, 50, 30, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.artist-profile-banner:hover {
+  transform: translateY(-2px);
+  border-color: #b88665;
+  box-shadow: 0 5px 14px rgba(80, 50, 30, 0.12);
+  background: linear-gradient(135deg, #ffffff 0%, #f6ece0 100%);
+}
+
+.artist-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.artist-avatar-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #a37255;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.artist-avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #a37255;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #7d543e;
+}
+
+.artist-badge-tag {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #8b5a3c;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 10px;
+  letter-spacing: 0.4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.artist-info-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artist-header-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.artist-kicker {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #9c6343;
+  text-transform: uppercase;
+}
+
+.artist-verified-pill {
+  font-family: var(--font-sans);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #2b6b35;
+  background: #e2f2e0;
+  border: 1px solid #b5deb1;
+  border-radius: 10px;
+  padding: 0 5px;
+}
+
+.artist-headline {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  color: #3b2a20;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artist-subline {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  color: #7d6556;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.artist-browse-arrow-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e9dacb;
+  border: 1px solid #d4c0ae;
+  color: #6a4b36;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.artist-profile-banner:hover .artist-browse-arrow-btn {
+  background: #d99a77;
+  color: #fff;
+  border-color: #c98560;
+  transform: translateX(2px);
+}
+
+/* Clickable Artist Name in Song Card */
+.result-artist-clickable {
+  color: #724c35;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.result-artist-clickable:hover {
+  color: #b85d43;
+  text-decoration-color: #b85d43;
+}
+
+/* Full Artist Discography View */
+.artist-discography-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 10px;
+}
+
+.artist-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: #ede2d3;
+  border: 1px solid #d8c5b2;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  color: #5c4333;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.15s ease;
+}
+
+.artist-back-btn:hover {
+  background: #e2d2be;
+  color: #3b281c;
+  transform: translateX(-2px);
+}
+
+.artist-hero-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, #f7efe4 0%, #ebdecb 100%);
+  border: 1.5px solid #d4bea8;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(60, 40, 25, 0.08);
+}
+
+.artist-hero-avatar-box {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+}
+
+.artist-hero-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid #8e5837;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.artist-hero-placeholder {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #8e5837;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px solid #6b3e24;
+}
+
+.artist-hero-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.artist-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.artist-catalog-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  color: #92542e;
+  background: #ffeedd;
+  border: 1px solid #f2cfaf;
+  border-radius: 10px;
+  padding: 1px 7px;
+  letter-spacing: 0.3px;
+}
+
+.artist-track-count-badge {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  color: #4b6b47;
+  background: #e3f2e1;
+  border: 1px solid #bfe0bc;
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+
+.artist-hero-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  color: #3b281c;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artist-hero-desc {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: #725847;
+  margin: 0;
+}
+
+.artist-tracks-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: #8c6850;
+  background: #fbf6ee;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
 .search-results-header {
   display: flex;
   justify-content: space-between;
